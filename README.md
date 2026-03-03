@@ -48,19 +48,21 @@ The core logic resides in the `Self-Correcting Harvester`. The agent follows a s
 
 ### 01. Secure Onboarding
 Transparency is our default. Users are shown exactly what the agents can and cannot see before any data is touched.
-![Onboarding](image_72867c.png)
+![Onboarding](https://github.com/Sanidhya14321/Agent_01/blob/main/Screenshot%20From%202026-03-03%2020-51-56.png)
 
 ### 02. Connection Hub
 Granular control over integrations. Each card displays the exact OAuth scopes requested.
-![Connection Hub](image_728642.png)
+![Connection Hub](https://github.com/Sanidhya14321/Agent_01/blob/main/Screenshot%20From%202026-03-03%2020-52-24.png)
 
 ### 03. Synthesized Insights
 View the "Living Knowledge Graph" in action, with confidence scores and source attribution.
-![Dashboard](image_72863c.png)
+![Dashboard](https://github.com/Sanidhya14321/Agent_01/blob/main/Screenshot%20From%202026-03-03%2020-52-39.png)
 
 ### 04. Admin Control Plane
 Monitor the "Token Burn Heatmap" to see which services are consuming the most resources.
-![Admin Dashboard](image_728601.png)
+![Admin Dashboard](https://github.com/Sanidhya14321/Agent_01/blob/main/Screenshot%20From%202026-03-03%2020-52-46.png)
+![Admin Dashboard](https://github.com/Sanidhya14321/Agent_01/blob/main/Screenshot%20From%202026-03-03%2020-53-00.png)
+
 
 ---
 
