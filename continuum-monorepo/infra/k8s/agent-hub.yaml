@@ -1,0 +1,76 @@
+---
+# ── Deployment: agent-hub ─────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-hub
+  labels:
+    app: agent-hub
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: agent-hub
+  template:
+    metadata:
+      labels:
+        app: agent-hub
+    spec:
+      containers:
+        - name: agent-hub
+          image: continuum/agent-hub:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: continuum-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-hub-svc
+spec:
+  selector:
+    app: agent-hub
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: agent-hub-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: agent-hub
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65

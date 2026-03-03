@@ -1,0 +1,22 @@
+{
+  "name": "continuum-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "db:generate": "cd packages/database && npx prisma generate",
+    "db:migrate": "cd packages/database && npx prisma migrate dev"
+  },
+  "devDependencies": {
+    "turbo": "^1.13.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

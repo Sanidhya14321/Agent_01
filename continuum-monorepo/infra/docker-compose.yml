@@ -1,0 +1,70 @@
+
+
+services:
+  # ── PostgreSQL (Supabase-compatible) ──────────────────────────────────────
+  postgres:
+    image: supabase/postgres:15.1.0.117
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: continuum
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./packages/database/supabase/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (BullMQ backend) ─────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # ── Agent Hub (FastAPI + LangGraph) ───────────────────────────────────────
+  agent-hub:
+    build:
+      context: ..
+      dockerfile: apps/agent-hub/Dockerfile
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/continuum
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../packages:/app/packages
+
+  # ── Next.js Web App ────────────────────────────────────────────────────────
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      NEXT_PUBLIC_AGENT_HUB_URL: http://agent-hub:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - agent-hub
+
+volumes:
+  postgres_data:

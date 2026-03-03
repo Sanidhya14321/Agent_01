@@ -1,0 +1,192 @@
+// Continuum — Prisma Schema
+// Database: PostgreSQL (Supabase) with pgvector extension
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+// ── Core User ─────────────────────────────────────────────────────────────────
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String?
+  avatarUrl   String?
+  role        UserRole @default(USER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions   UserPermissions?
+  tokenQuota    TokenQuota?
+  agentStates   AgentState[]
+  legacyVaults  LegacyVault[]
+  knowledgeNodes KnowledgeNode[]
+  harvestJobs   HarvestJob[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// ── User Permissions (Least-Privilege OAuth) ─────────────────────────────────
+
+model UserPermissions {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // GitHub
+  githubConnected  Boolean @default(false)
+  githubScopes     String[] @default([])  // e.g. ["repo:read","user:email"]
+  githubToken      String?  // encrypted at rest
+
+  // Gmail
+  gmailConnected   Boolean @default(false)
+  gmailScopes      String[] @default([])  // e.g. ["gmail.metadata"]
+  gmailToken       String?
+
+  // YouTube
+  youtubeConnected Boolean @default(false)
+  youtubeScopes    String[] @default([])  // e.g. ["youtube.readonly"]
+  youtubeToken     String?
+
+  consentVersion   String   @default("1.0")
+  consentGivenAt   DateTime?
+  updatedAt        DateTime @updatedAt
+
+  @@map("user_permissions")
+}
+
+// ── Token Quota (Cost Control) ────────────────────────────────────────────────
+
+model TokenQuota {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  dailyLimitTokens Int      @default(50000)   // hard cap per user/day
+  monthlyLimitUsd  Float    @default(5.0)     // $5/month default
+  tokensUsedToday  Int      @default(0)
+  usdSpentThisMonth Float   @default(0.0)
+  lastResetAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("token_quotas")
+}
+
+// ── Agent State (LangGraph Checkpoints / Rewind) ──────────────────────────────
+
+model AgentState {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  jobId       String      // BullMQ job ID
+  checkpointId String     @unique // LangGraph checkpoint key
+  graphName   String      // e.g. "self_correcting_harvester"
+  state       Json        // full serialised LangGraph state snapshot
+  nodeReached String      // last node executed
+  iteration   Int         @default(0)
+  status      AgentStatus @default(RUNNING)
+  confidence  Float?      // synthesiser confidence score (0–1)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId, jobId])
+  @@map("agent_states")
+}
+
+enum AgentStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  HITL_PENDING
+  REWOUND
+}
+
+// ── Legacy Vault (Encrypted Raw Harvested Content) ────────────────────────────
+
+model LegacyVault {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  source      DataSource
+  rawContent  String       // AES-256 encrypted blob
+  contentHash String       // SHA-256 of original (for dedup)
+  metadata    Json         // non-sensitive metadata (repo name, email subject, etc.)
+  maskedAt    Boolean      @default(false) // PII masking applied before LLM
+  createdAt   DateTime     @default(now())
+
+  @@index([userId, source])
+  @@map("legacy_vault")
+}
+
+enum DataSource {
+  GITHUB
+  GMAIL
+  YOUTUBE
+}
+
+// ── Knowledge Node (Vector DB Reference) ─────────────────────────────────────
+
+model KnowledgeNode {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title       String
+  summary     String     // LLM-generated synthesis
+  source      DataSource
+  sourceRef   String     // original URL / message-id / repo
+  confidence  Float      // synthesiser confidence at emission time
+  vectorId    String     // ID in user-specific pgvector namespace
+  namespace   String     // "user_{userId}" — always partitioned
+  checkpointId String?   // linked AgentState for rewind
+  tags       String[]   @default([])
+  createdAt  DateTime   @default(now())
+
+  @@index([userId, source])
+  @@index([namespace])
+  @@map("knowledge_nodes")
+}
+
+// ── Harvest Job (BullMQ job tracking) ────────────────────────────────────────
+
+model HarvestJob {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bullJobId  String    @unique
+  source     DataSource
+  status     JobStatus @default(QUEUED)
+  tokensUsed Int       @default(0)
+  iterations Int       @default(0)
+  errorMsg   String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("harvest_jobs")
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  HITL_PENDING
+}
