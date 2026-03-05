@@ -57,7 +57,7 @@ class HarvesterState(TypedDict):
     iteration: int
     error: Optional[str]
     status: str                        # 'running'|'completed'|'failed'|'hitl'
-    checkpoint_id: Optional[str]
+    job_checkpoint_id: Optional[str]
     pii_entities_found: list[str]
     tokens_used: int
 
@@ -382,7 +382,7 @@ async def run_harvester(
         "iteration": 0,
         "error": None,
         "status": "running",
-        "checkpoint_id": None,
+        "job_checkpoint_id": None,
         "pii_entities_found": [],
         "tokens_used": 0,
     }
@@ -420,3 +420,4 @@ async def rewind_to_checkpoint(job_id: str, checkpoint_id: str) -> Optional[Harv
             return snapshot.values
     logger.warning("Checkpoint %s not found for job %s", checkpoint_id, job_id)
     return None
+

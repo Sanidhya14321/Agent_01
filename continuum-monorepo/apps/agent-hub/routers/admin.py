@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
 
-from queue.bullmq_client import queue_client
+from tasks.bullmq_client import queue_client
 
 router = APIRouter()
 

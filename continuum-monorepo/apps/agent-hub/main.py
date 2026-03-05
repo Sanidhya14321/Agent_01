@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers import harvest, rewind, status, admin as admin_router
-from queue.bullmq_client import queue_client, run_worker
+from tasks.bullmq_client import queue_client, run_worker
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("continuum.main")
